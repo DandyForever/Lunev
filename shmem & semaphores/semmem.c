@@ -45,21 +45,21 @@ int main (int argc, char* argv[])
 	printf("%d\n", errno);
 	if (Shm_id == -1)
 	{
-		printf ("Shmget failure\n");
+		perror ("shmget");
 		exit (-1);
 	}
 
 	Buffer = (char*) shmat (Shm_id, NULL, 0);
 	if (Buffer == (char*) (void*) -1)
 	{
-		printf ("Shmat failure\n");
+		perror ("shmat");
 		exit (-1);
 	}
 
 	Sem_id = semget (25, SEM_NUM, IPC_CREAT | 0666);
 	if (Sem_id == -1)
 	{
-		printf ("Semget failure\n");
+		perror ("semget");
 		exit (-1);
 	}
 	
@@ -105,7 +105,7 @@ int main (int argc, char* argv[])
 	do {						\
 		if (semop (Sem_id, Sems, Sem_ind) == -1)\
 		{					\
-			printf ("Semop failure\n");	\
+			perror ("semop");		\
 			return -1;			\
 		}					\
 		Sem_ind = 0;				\
@@ -136,10 +136,10 @@ int consumer ()
 		SEMOP();
 		
 		memcpy (&bytes, Buffer, sizeof(ssize_t));
-		printf ("cons %d\n", bytes);
+	
 		if (write (STDOUT_FILENO, Buffer + sizeof(ssize_t), bytes) == -1)
 		{
-			printf ("Write failure\n");
+			perror ("write");
 			return -1;
 		}
 	DEBUG BREAKER();
@@ -156,7 +156,7 @@ int producer (const char* file_name)
 	int fd = open (file_name, O_RDONLY);
 	if (fd == -1)
 	{
-		printf ("Open failure\n");
+		perror ("open");
 		return -1;
 	}
 
@@ -185,15 +185,13 @@ int producer (const char* file_name)
 		bytes = read (fd, Buffer + sizeof(ssize_t), MEM_MEM - sizeof(ssize_t));
 		if (bytes == -1)
 		{
-			printf ("Read failure\n");
+			perror ("read");
 			return -1;
 		}
 	DEBUG BREAKER();
 
-		printf ("prod %d\n", bytes);
 		memcpy (Buffer, &bytes, sizeof(ssize_t));
-		printf ("pp%ld\n",(size_t) Buffer[0]);
-
+		
 		SEMTOBUF(MEMORY, +1, 0);
 		SEMTOBUF(MUTEX , -1, SEM_UNDO);
 		SEMOP();
