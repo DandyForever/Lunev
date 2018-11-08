@@ -16,12 +16,13 @@
 #define MEM_MEM 256
 
 enum semaphores {
-	CSM_CUR = 1,
-	CSM_PRE = 2,
-	PDC_CUR = 3,
-	PDC_PRE = 4,
-	MUTEX   = 5,
-	MEMORY  = 6,
+	CSM_CUR = 0,
+	CSM_PRE = 1,
+	PDC_CUR = 2,
+	PDC_PRE = 3,
+	MUTEX   = 4,
+	FULL	= 5,
+	CTL	= 6,
 	SEM_NUM = 7
 };
 
@@ -41,8 +42,7 @@ int producer (const char* file_name);
 
 int main (int argc, char* argv[])
 {
-	Shm_id = shmget (25, MEM_MEM, IPC_CREAT | 0666);
-	printf("%d\n", errno);
+	Shm_id = shmget (25, MEM_MEM, IPC_CREAT | 0666);	
 	if (Shm_id == -1)
 	{
 		perror ("shmget");
@@ -85,12 +85,22 @@ int main (int argc, char* argv[])
 	return 0;
 }
 
-#define DEBUG if (1)
+#define DEBUG if (0)
 
 #define BREAKER(...)					\
 	do {						\
 		printf ("Line: %d\n", __LINE__);	\
 		getchar ();				\
+	} while (0)
+
+#define SET_VAL(SEM, VAL)				\
+	do {						\
+		sc = semctl (Sem_id, SEM, SETVAL, VAL);	\
+		if (sc == -1)				\
+		{					\
+			perror ("semctl");		\
+			exit (-1);			\
+		}					\
 	} while (0)
 
 #define SEMTOBUF(SEM, OP, FLG)		 		\
@@ -117,22 +127,25 @@ int consumer ()
 	SEMTOBUF(CSM_PRE,  0, IPC_NOWAIT); //
 	SEMTOBUF(CSM_CUR, +1, SEM_UNDO);   // take the consumer position
 	SEMOP();
-	DEBUG BREAKER();
 
 	SEMTOBUF(PDC_CUR, -1, 0);         // wait for producer
 	SEMTOBUF(PDC_CUR, +1, 0);	  //
 	SEMTOBUF(PDC_PRE, +1, SEM_UNDO);  // pick up the producer
 	SEMOP();
-	DEBUG BREAKER();
-	
+
+	SEMTOBUF(PDC_CUR, -1, IPC_NOWAIT);
+	SEMTOBUF(PDC_CUR, +1, 0);
+	SEMTOBUF(CTL    , -1, SEM_UNDO);
+	SEMOP();
+
 	ssize_t bytes = 0;
 	do {
 		SEMTOBUF(PDC_CUR, -1, IPC_NOWAIT); // check producer
 		SEMTOBUF(PDC_CUR, +1, 0);	   //
 		
-		SEMTOBUF(MEMORY , -1, 0);
 		SEMTOBUF(MUTEX  ,  0, 0);
 		SEMTOBUF(MUTEX  , +1, SEM_UNDO);
+		SEMTOBUF(FULL	, -1, SEM_UNDO);
 		SEMOP();
 		
 		memcpy (&bytes, Buffer, sizeof(ssize_t));
@@ -142,7 +155,6 @@ int consumer ()
 			perror ("write");
 			return -1;
 		}
-	DEBUG BREAKER();
 		
 		SEMTOBUF(MUTEX, -1, SEM_UNDO);
 		SEMOP();
@@ -164,20 +176,24 @@ int producer (const char* file_name)
 	SEMTOBUF(PDC_PRE,  0, IPC_NOWAIT); //
 	SEMTOBUF(PDC_CUR, +1, SEM_UNDO);   // take the producer position
 	SEMOP();
-	DEBUG BREAKER();
 
 	SEMTOBUF(CSM_CUR, -1, 0);	  // wait for consumer
 	SEMTOBUF(CSM_CUR, +1, 0);	  //
 	SEMTOBUF(CSM_PRE, +1, SEM_UNDO);  // pick up the consumer
 	SEMOP();
-	DEBUG BREAKER();
-
+	
+	SEMTOBUF(CSM_CUR, -1, IPC_NOWAIT);
+	SEMTOBUF(CSM_CUR, +1, 0);
+	SEMTOBUF(FULL   ,  0, IPC_NOWAIT);
+	SEMTOBUF(CTL    , +1, SEM_UNDO);
+	SEMOP();
+	
 	ssize_t bytes = 0;
 	do {
 		SEMTOBUF(CSM_CUR, -1, IPC_NOWAIT); //check consumer
 		SEMTOBUF(CSM_CUR, +1, 0);	   //
 		
-		SEMTOBUF(MEMORY ,  0, 0);
+		SEMTOBUF(FULL,     0, 0);	
 		SEMTOBUF(MUTEX  ,  0, 0);
 		SEMTOBUF(MUTEX  , +1, SEM_UNDO);
 		SEMOP();
@@ -188,12 +204,11 @@ int producer (const char* file_name)
 			perror ("read");
 			return -1;
 		}
-	DEBUG BREAKER();
 
 		memcpy (Buffer, &bytes, sizeof(ssize_t));
 		
-		SEMTOBUF(MEMORY, +1, 0);
 		SEMTOBUF(MUTEX , -1, SEM_UNDO);
+		SEMTOBUF(FULL  , +1, SEM_UNDO);
 		SEMOP();
 	} while (bytes);
 
@@ -201,3 +216,4 @@ int producer (const char* file_name)
 
 	return 0;
 }
+
