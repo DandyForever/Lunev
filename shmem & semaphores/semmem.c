@@ -11,8 +11,6 @@
 #include <fcntl.h>
 #include <string.h>
 
-#define dbg printf ("meow\n"); fflush (stdout);
-
 #define MEM_MEM 256
 
 enum semaphores {
@@ -128,14 +126,9 @@ int consumer ()
 	SEMTOBUF(CSM_CUR, +1, SEM_UNDO);   // take the consumer position
 	SEMOP();
 
-	SEMTOBUF(PDC_CUR, -1, 0);         // wait for producer
-	SEMTOBUF(PDC_CUR, +1, 0);	  //
-	SEMTOBUF(PDC_PRE, +1, SEM_UNDO);  // pick up the producer
-	SEMOP();
-
-	SEMTOBUF(PDC_CUR, -1, IPC_NOWAIT);
-	SEMTOBUF(PDC_CUR, +1, 0);
-	SEMTOBUF(CTL    , -1, SEM_UNDO);
+	SEMTOBUF(PDC_CUR, -1, 0);          // wait for producer
+	SEMTOBUF(PDC_CUR, +1, 0);	   //
+	SEMTOBUF(PDC_PRE, +1, SEM_UNDO);   // pick up the producer
 	SEMOP();
 
 	ssize_t bytes = 0;
@@ -145,7 +138,7 @@ int consumer ()
 		
 		SEMTOBUF(MUTEX  ,  0, 0);
 		SEMTOBUF(MUTEX  , +1, SEM_UNDO);
-		SEMTOBUF(FULL	, -1, SEM_UNDO);
+		SEMTOBUF(FULL	, -1, 0);
 		SEMOP();
 		
 		memcpy (&bytes, Buffer, sizeof(ssize_t));
@@ -177,15 +170,13 @@ int producer (const char* file_name)
 	SEMTOBUF(PDC_CUR, +1, SEM_UNDO);   // take the producer position
 	SEMOP();
 
-	SEMTOBUF(CSM_CUR, -1, 0);	  // wait for consumer
-	SEMTOBUF(CSM_CUR, +1, 0);	  //
-	SEMTOBUF(CSM_PRE, +1, SEM_UNDO);  // pick up the consumer
+	SEMTOBUF(CSM_CUR, -1, 0);	   // wait for consumer
+	SEMTOBUF(CSM_CUR, +1, 0);	   //
+	SEMTOBUF(CSM_PRE, +1, SEM_UNDO);   // pick up the consumer
 	SEMOP();
-	
-	SEMTOBUF(CSM_CUR, -1, IPC_NOWAIT);
-	SEMTOBUF(CSM_CUR, +1, 0);
-	SEMTOBUF(FULL   ,  0, IPC_NOWAIT);
-	SEMTOBUF(CTL    , +1, SEM_UNDO);
+
+	SEMTOBUF(FULL   , +1, SEM_UNDO);  // set FULL to 0;
+	SEMTOBUF(FULL   , -1, 0);
 	SEMOP();
 	
 	ssize_t bytes = 0;
@@ -193,7 +184,7 @@ int producer (const char* file_name)
 		SEMTOBUF(CSM_CUR, -1, IPC_NOWAIT); //check consumer
 		SEMTOBUF(CSM_CUR, +1, 0);	   //
 		
-		SEMTOBUF(FULL,     0, 0);	
+		SEMTOBUF(FULL   ,  0, 0);	
 		SEMTOBUF(MUTEX  ,  0, 0);
 		SEMTOBUF(MUTEX  , +1, SEM_UNDO);
 		SEMOP();
@@ -208,7 +199,7 @@ int producer (const char* file_name)
 		memcpy (Buffer, &bytes, sizeof(ssize_t));
 		
 		SEMTOBUF(MUTEX , -1, SEM_UNDO);
-		SEMTOBUF(FULL  , +1, SEM_UNDO);
+		SEMTOBUF(FULL  , +1, 0);
 		SEMOP();
 	} while (bytes);
 
