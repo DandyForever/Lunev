@@ -7,31 +7,41 @@
 #include <errno.h>
 #include <fcntl.h>
 
+#define CHECK(cond, func)		\
+	do{				\
+		if (cond)		\
+		{			\
+			perror(#func);	\
+			exit(-1);	\
+		}			\
+	}while(0)			
+
 #define PID_FIFO  "pid_fifo"
-#define CHMOD 0644
+#define CHMOD 0666
 #define FIFO_NAME_SIZE 100
 #define BUFFSIZE 256
 #define TIME_LIMIT 1000
 #define SMALL_TIME 100
 
-int reciever ();
-int streamer (const char* file_name);
+int consumer ();
+int producer (const char* file_name);
 
 int main (int argc, char* argv[])
 {
 	if (argc == 1)
 	{
-		reciever ();
+		consumer ();
 	}
 
 	else if (argc == 2)
 	{
-		streamer (argv[1]);
+		producer (argv[1]);
 	}
 
 	else
 	{
-		printf ("argument invalid: too many arguments\n");
+		errno = EINVAL;
+		perror("main");
 		return 1;
 	}
 
@@ -40,42 +50,33 @@ int main (int argc, char* argv[])
 
 int waiting_streamer (const int fd);
 
-int reciever ()
+int consumer ()
 {
 	int pid_fifo = mkfifo (PID_FIFO, CHMOD);
-
-	//
+	CHECK(pid_fifo == -1 && errno != EEXIST, mkfifo);
 	
 	pid_t pid = getpid ();
-
-	//
 	
 	int pid_fd = open (PID_FIFO, O_RDWR);
-
-	//
+	CHECK(pid_fd == -1, open);
 	
-	write (pid_fd, &pid, sizeof (pid_t));
-	//
-	close (pid_fd);
+	int wrtpid = write (pid_fd, &pid, sizeof (pid_t));
+	CHECK(wrtpid == -1, write);
+	
+	CHECK(close (pid_fd) == -1, close);
 
 	char fifo_name[FIFO_NAME_SIZE] = {0};
 
-	sprintf (fifo_name, "process%d", pid);
+	CHECK(sprintf (fifo_name, "process%d", pid) < 0, sprintf);
 
 	int recieve_fifo = mkfifo (fifo_name, CHMOD);
-
-	//
+	CHECK(recieve_fifo == -1 && errno != EEXIST, mkfifo);
 	
-	int fifo_fd = open (fifo_name, O_RDONLY);
+	int fifo_fd = open (fifo_name, O_RDONLY | O_NONBLOCK);
+	CHECK(fifo_fd == -1, open);
 
-	//
+	CHECK(waiting_streamer (fifo_fd) == -1, consumer);
 	
-	if (waiting_streamer (fifo_fd) == -1)
-	{
-		printf ("streamer is invalid\n");
-		return -1;
-	}
-
 	char buffer[BUFFSIZE] = {0};
 
 	int count_symbols = -1;
@@ -86,7 +87,8 @@ int reciever ()
 		write (STDOUT_FILENO, buffer, count_symbols);
 	}
 
-	close (fifo_fd);
+	CHECK(close (fifo_fd) == -1, close);
+       	CHECK(unlink (fifo_name), unlilnk);	
 }
 
 int waiting_streamer (const int fd)
@@ -105,40 +107,38 @@ int waiting_streamer (const int fd)
 	}
 
 	if (bytes == 0)
+	{
+		errno = ESRCH;
 		return -1;
+	}
 
 	return 0;
 }
 
-int streamer (const char* file_name)
+int producer (const char* file_name)
 {
 	int pid_fifo = mkfifo (PID_FIFO, CHMOD);
-
-	//
+	CHECK(pid_fifo == -1 && errno != EEXIST, mkfifo);
 	
 	int pid_fd = open (PID_FIFO, O_RDWR);
-
-	//
+	CHECK(pid_fd == -1, open);
 	
 	pid_t pid = -1;
 	
 	int check_read = read (pid_fd, &pid, sizeof (pid_t));
-
-	//
+	CHECK(check_read == -1, read);
 	
-	close (pid_fd);
+	CHECK(close (pid_fd) == -1, close);
 
 	char fifo_name[FIFO_NAME_SIZE] = {0};
 
-	sprintf (fifo_name, "process%d", pid);
+	CHECK(sprintf (fifo_name, "process%d", pid) == -1, sprintf);
 
 	int stream_fifo = mkfifo (fifo_name, CHMOD);
-
-	//
+	CHECK(stream_fifo == -1 && errno != EEXIST, mkfifo);
 	
-	int fifo_fd = open (fifo_name, O_WRONLY);
-
-	//
+	int fifo_fd = open (fifo_name, O_WRONLY | O_NONBLOCK);
+	CHECK(fifo_fd == -1, open);
 	
 	char buffer[BUFFSIZE] = {0};
 	
