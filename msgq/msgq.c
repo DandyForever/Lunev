@@ -53,23 +53,6 @@ int main(int argc, char *argv[])
 		printf ("the number is bad\n");
 		return 3;
 	}
-        
-	/*pid_t status = 0, id = 1, iwait = 0;
-	for (int i = 0; i < val; i++)
-	{
-		if (id != 0)
-		{
-			id = fork ();
-			if (id == 0)
-				printf ("%d %d\n", i, getpid());
-			iwait = wait (&status);
-		}
-		else
-		{
-			exit(0);
-		}
-
-	}*/
 
 	int msqid = msgget (IPC_PRIVATE, MSGFLG);
 	if (msqid == -1)
@@ -85,6 +68,7 @@ int main(int argc, char *argv[])
 	struct msgbuf msg = {0};
 	msg.mtype = 1;
 	if (msgsnd (msqid, &msg, 0, 0) == -1)
+
 	{
 		printf ("msgsnd failure: returned -1\n");
 		exit (1);
@@ -102,19 +86,6 @@ int main(int argc, char *argv[])
 
 		if (pid == 0) break;
 	}
-
-	/*if (i == val)
-	{
-		struct msgbuf msg = {0};
-		msg.mtype = 1;
-		if (msgsnd (msqid, &msg, 0, 0) == -1)
-		{
-			printf ("msgsnd failure: returned -1\n");	
-			exit (1);
-		}
-
-		for (int j = 1; j < val; j++) wait(NULL);
-	}*/
 
 	if (i < val)
 	{
