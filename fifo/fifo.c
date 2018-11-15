@@ -6,14 +6,18 @@
 #include <stdlib.h>
 #include <errno.h>
 #include <fcntl.h>
+#include <signal.h>
+#include <poll.h>
 
-#define CHECK(cond, func)		\
-	do{				\
-		if (cond)		\
-		{			\
-			perror(#func);	\
-			exit(-1);	\
-		}			\
+#define _str(x) #x
+#define str(x) _str(x)
+#define CHECK(cond, func)					\
+	do{							\
+		if (cond)					\
+		{						\
+			perror(#func " at " str(__LINE__));	\
+			exit(-1);				\
+		}						\
 	}while(0)			
 
 #define PID_FIFO  "pid_fifo"
@@ -48,7 +52,7 @@ int main (int argc, char* argv[])
 	return 0;
 }
 
-int waiting_streamer (const int fd);
+int waiting_producer (const int fd);
 
 int consumer ()
 {
@@ -57,14 +61,9 @@ int consumer ()
 	
 	pid_t pid = getpid ();
 	
-	int pid_fd = open (PID_FIFO, O_RDWR);
+	int pid_fd = open (PID_FIFO, O_WRONLY);
 	CHECK(pid_fd == -1, open);
-	
-	int wrtpid = write (pid_fd, &pid, sizeof (pid_t));
-	CHECK(wrtpid == -1, write);
-	
-	CHECK(close (pid_fd) == -1, close);
-
+		
 	char fifo_name[FIFO_NAME_SIZE] = {0};
 
 	CHECK(sprintf (fifo_name, "process%d", pid) < 0, sprintf);
@@ -75,8 +74,14 @@ int consumer ()
 	int fifo_fd = open (fifo_name, O_RDONLY | O_NONBLOCK);
 	CHECK(fifo_fd == -1, open);
 
-	CHECK(waiting_streamer (fifo_fd) == -1, consumer);
+	int wrtpid = write (pid_fd, &pid, sizeof (pid_t));
+	CHECK(wrtpid == -1, write);
+	CHECK(close (pid_fd) == -1, close);
+
+	CHECK(waiting_producer (fifo_fd) == -1, consumer);
 	
+	fcntl(fifo_fd, F_SETFL, O_RDONLY);
+
 	char buffer[BUFFSIZE] = {0};
 
 	int count_symbols = -1;
@@ -89,29 +94,25 @@ int consumer ()
 
 	CHECK(close (fifo_fd) == -1, close);
        	CHECK(unlink (fifo_name), unlilnk);	
+	
+	return 0;
 }
 
-int waiting_streamer (const int fd)
+int waiting_producer (const int fd)
 {
 	int bytes = -1;
 	int time = 0;
 
-	while (time < TIME_LIMIT)
-	{
-		usleep (SMALL_TIME);
-		time += SMALL_TIME;
+	struct pollfd pfd = { 
+		.fd = fd,
+		.events = POLLIN
+	};
 
-		ioctl (fd, FIONREAD, &bytes);
-
-		if (bytes > 0) break;
-	}
-
-	if (bytes == 0)
-	{
-		errno = ESRCH;
+	if(poll(&pfd, 1, TIME_LIMIT) == 0) {
+		errno = ETIME;
 		return -1;
 	}
-
+	
 	return 0;
 }
 
@@ -133,13 +134,12 @@ int producer (const char* file_name)
 	char fifo_name[FIFO_NAME_SIZE] = {0};
 
 	CHECK(sprintf (fifo_name, "process%d", pid) == -1, sprintf);
-
-	int stream_fifo = mkfifo (fifo_name, CHMOD);
-	CHECK(stream_fifo == -1 && errno != EEXIST, mkfifo);
 	
 	int fifo_fd = open (fifo_name, O_WRONLY | O_NONBLOCK);
-	CHECK(fifo_fd == -1, open);
+	CHECK(fifo_fd == -1 && errno == ENXIO, open);
 	
+	fcntl (fifo_fd, F_SETFL, O_WRONLY);
+
 	char buffer[BUFFSIZE] = {0};
 	
 	int streaming_file = open (file_name, O_RDONLY);
@@ -154,4 +154,7 @@ int producer (const char* file_name)
 
 	close (fifo_fd);
 	close (streaming_file);
+
+	return 0;
 }
+
