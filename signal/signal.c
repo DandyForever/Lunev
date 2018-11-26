@@ -37,11 +37,13 @@
 char Buffer[BUFFSIZE];
 char Bit = 0;
 sigset_t Set;
+int index = 0;
 
 int child (pid_t pid, const char* file);
 int parent (pid_t pid);
 void u1_hdlr ();
 void u2_hdlr ();
+void ch_hdlr ();
 
 int main (int argc, char* argv[])
 {
@@ -56,7 +58,7 @@ int main (int argc, char* argv[])
 	sigaction (SIGUSR2, &u2_act, NULL);
 
 	struct sigaction ch_act = {0};
-	ch_act.sa_handler = exit;
+	ch_act.sa_handler = ch_hdlr;
 	sigemptyset (&ch_act.sa_mask);
 	sigaction (SIGCHLD, &ch_act, NULL);
 
@@ -69,11 +71,13 @@ int main (int argc, char* argv[])
 	sigdelset (&Set, SIGINT);
 	sigdelset (&Set, SIGCHLD);
 	sigdelset (&Set, SIGALRM);
+
 	sigprocmask (SIG_SETMASK, &Set, NULL);
 	
 	sigdelset (&Set, SIGUSR1);
 	sigdelset (&Set, SIGUSR2);
 	
+	pid_t ppid = getpid();	
 	pid_t pid = fork ();
 
 	if (pid == -1)
@@ -84,8 +88,8 @@ int main (int argc, char* argv[])
 
 	if (pid == 0)
 	{
-		child (getppid(), argv[1]);
-	} else
+		child (ppid, argv[1]);
+	} else 
 	{
 		parent (pid);
 	}
@@ -142,7 +146,6 @@ int child (pid_t pid, const char* file)
 
 int parent (pid_t pid)
 {
-	int index = 0;
 	int bitnum = 0;
 	char symbol = 0;
 
@@ -151,11 +154,6 @@ int parent (pid_t pid)
 
 		if (bitnum == 0)
 		{
-			if (!Bit)
-			{
-				WRITE;
-				exit (EXIT_SUCCESS);
-			}
 			KILL(pid, SIGUSR1);
 			ALARM;
 		}
@@ -183,4 +181,16 @@ void u1_hdlr ()
 void u2_hdlr ()
 {
 	Bit = 0;
+}
+
+void ch_hdlr ()
+{
+	if (!Bit)
+	{
+		WRITE;
+		exit (EXIT_SUCCESS);
+	} else
+	{
+		exit (-1);
+	}
 }
