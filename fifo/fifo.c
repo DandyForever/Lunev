@@ -100,15 +100,13 @@ int consumer ()
 
 int waiting_producer (const int fd)
 {
-	int bytes = -1;
-	int time = 0;
-
 	struct pollfd pfd = { 
 		.fd = fd,
 		.events = POLLIN
 	};
 
-	if(poll(&pfd, 1, TIME_LIMIT) == 0) {
+	int res = poll (&pfd, 1, TIME_LIMIT);
+	if(res == 0 || res == -1 || pfd.revents != POLLIN) {
 		errno = ETIME;
 		return -1;
 	}
