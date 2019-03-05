@@ -159,8 +159,6 @@ Iterator * iteratorConstruct (BitArray * obj){
     it -> shift_ = BITINELEM - 1;
     it -> index_ = 0;
 
-    printf ("%ld\n", it -> array_ -> size_);
-
     errno = 0;
     return it;
 }
@@ -211,4 +209,59 @@ __int8_t iteratorGetElem (Iterator * it){
         return 1;
     else
         return 0;
+}
+
+int bitArrayFind (BitArray * obj, size_t start){
+    if (obj == NULL){
+        errno = EINVAL;
+        return -1;
+    }
+
+    size_t capacity = obj -> size_ * BITINELEM;
+
+    if (start > capacity - 1){
+        errno = EINVAL;
+        return -1;
+    }
+
+    Proxy tmp = {
+            .shift_ = BITINELEM - start % BITINELEM - 1,
+            .ptr_ = obj -> data_ + start / BITINELEM
+    };
+
+    if (tmp.shift_ != 63){
+        for (int i = tmp.shift_; i >= 0; i--) {
+            if (*tmp.ptr_ & ((__uint64_t) 1 << i)) {
+                errno = 0;
+                return start;
+            }
+            start++;
+        }
+
+        if (start > capacity - 1){
+            errno = 0;
+            return -1;
+        }
+
+        tmp.shift_ = 63;
+        tmp.ptr_++;
+    }
+
+    while (!(*tmp.ptr_ & ~((__uint64_t) 0))){
+        tmp.ptr_++;
+        start += BITINELEM;
+        if (start > capacity - 1){
+            errno = 0;
+            return -1;
+        }
+    }
+
+    for (int i = tmp.shift_; i >= 0; i--){
+        if (*tmp.ptr_ & ((__uint64_t) 1 << i)) {
+            errno = 0;
+            return start;
+        }
+
+        start++;
+    }
 }

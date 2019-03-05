@@ -15,3 +15,4 @@ Iterator * iteratorConstruct (BitArray * obj);
 __int8_t iteratorDestruct (Iterator * it);
 __int8_t iteratorNext (Iterator * it);
 __int8_t iteratorGetElem (Iterator * it);
+int bitArrayFind (BitArray * obj, size_t start);
