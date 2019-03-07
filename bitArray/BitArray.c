@@ -5,6 +5,8 @@
 #include "BadCalloc.h"
 #include "BitArray.h"
 
+const __uint8_t BITINELEM = sizeof (__uint64_t) * 8;
+
 struct BitArray {
     __uint64_t * data_;
     size_t size_;
@@ -114,14 +116,11 @@ __int8_t bitArrayGet (BitArray * obj, size_t index){
             .shift_ = BITINELEM - index % BITINELEM - 1
     };
 
-    if ((*tmp.ptr_) & (((__uint64_t) 1) << tmp.shift_))
-        return 1;
-    else
-        return 0;
+    return !!((*tmp.ptr_) & (((__uint64_t) 1) << tmp.shift_));
 }
 
 __int8_t bitArraySet (BitArray * obj, size_t index, int value){
-    if (obj == NULL || value != 0 && value != 1 ||
+    if (obj == NULL || (value != 0 && value != 1) ||
             index / BITINELEM + (index % BITINELEM != 0) > obj -> size_){
         errno = EINVAL;
         return -1;
@@ -211,7 +210,7 @@ __int8_t iteratorGetElem (Iterator * it){
         return 0;
 }
 
-int bitArrayFind (BitArray * obj, size_t start){
+int bitArrayFind (BitArray * obj, size_t start, size_t end, int value){
     if (obj == NULL){
         errno = EINVAL;
         return -1;
@@ -219,7 +218,7 @@ int bitArrayFind (BitArray * obj, size_t start){
 
     size_t capacity = obj -> size_ * BITINELEM;
 
-    if (start > capacity - 1){
+    if (start > capacity - 1 || end > capacity - 1 || end < start || (value != 0 && value != 1)){
         errno = EINVAL;
         return -1;
     }
@@ -231,37 +230,67 @@ int bitArrayFind (BitArray * obj, size_t start){
 
     if (tmp.shift_ != 63){
         for (int i = tmp.shift_; i >= 0; i--) {
-            if (*tmp.ptr_ & ((__uint64_t) 1 << i)) {
+            if (value)
+                if (*tmp.ptr_ & ((__uint64_t) 1 << i)) {
+                    errno = 0;
+                    return (int) start;
+                }
+                else {}
+            else if (!(*tmp.ptr_ & ((__uint64_t) 1 << i))){
                 errno = 0;
-                return start;
+                    return  (int) start;
             }
+
             start++;
+
+            if (start > end){
+                errno = 0;
+                return -1;
+            }
         }
 
-        if (start > capacity - 1){
+        /*if (start > capacity - 1){
             errno = 0;
             return -1;
-        }
+        }*/
 
-        tmp.shift_ = 63;
+        tmp.shift_ = BITINELEM - 1;
         tmp.ptr_++;
     }
 
-    while (!(*tmp.ptr_ & ~((__uint64_t) 0))){
-        tmp.ptr_++;
-        start += BITINELEM;
-        if (start > capacity - 1){
-            errno = 0;
-            return -1;
+
+    if (value)
+        while (!(*tmp.ptr_ & ~((__uint64_t) 0)) && end - start >= BITINELEM){
+            tmp.ptr_++;
+            start += BITINELEM;
+            /*if (start > end){
+                errno = 0;
+                return -1;
+            }*/
         }
-    }
+    else
+        while (!(*tmp.ptr_ | ((__uint64_t) 0)) && end - start >= BITINELEM){
+            tmp.ptr_++;
+            start += BITINELEM;
+        }
 
     for (int i = tmp.shift_; i >= 0; i--){
-        if (*tmp.ptr_ & ((__uint64_t) 1 << i)) {
+        if (value)
+            if (*tmp.ptr_ & ((__uint64_t) 1 << i)) {
+                errno = 0;
+                return (int) start;
+            }
+            else {}
+        else if (!(*tmp.ptr_ & ((__uint64_t) 1 << i))){
             errno = 0;
-            return start;
+            return  (int) start;
         }
 
         start++;
+
+        if (start > end){
+            errno = 0;
+            return -1;
+        }
     }
 }
