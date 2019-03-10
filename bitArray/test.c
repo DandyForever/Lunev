@@ -139,32 +139,33 @@ int main (){
     printf ("\nTEST #8\n");
     printf ("FIND TEST\n");
 
-    for (int i = 0; i < 100; i++){
+    for (int i = 0; i < 192; i++){
         bitArraySet(myBitArray, i, 0);
     }
 
     bitArraySet(myBitArray, 10, 1);
-    if (bitArrayFind(myBitArray, 0, 190, 0) != 10)
+    if (bitArrayFind(myBitArray, 0, 190, 1) != 10)
         printf ("FIND FAILURE\n");
 
 
     bitArraySet(myBitArray, 128, 1);
-    if (bitArrayFind(myBitArray, 20, 190, 0) != 128)
+    if (bitArrayFind(myBitArray, 20, 190, 1) != 128)
         printf ("FIND FAILURE\n");
 
-    if (bitArrayFind(myBitArray, 129, 190, 0) != -1)
+
+    if (bitArrayFind(myBitArray, 129, 190, 1) != -1)
         printf ("FIND FAILURE\n");
 
     bitArraySet(myBitArray, 129, 1);
-    if (bitArrayFind(myBitArray, 129, 190, 0) != 129)
+    if (bitArrayFind(myBitArray, 129, 190, 1) != 129)
         printf ("FIND FAILURE\n");
 
     bitArraySet(myBitArray, 128, 0);
     bitArraySet(myBitArray, 129, 0);
-    if (bitArrayFind(myBitArray, 15, 190, 0) != -1)
+    if (bitArrayFind(myBitArray, 15, 190, 1) != -1)
         printf ("FIND FAILURE\n");
 
-    for (int i = 0; i < 100; i++){
+    for (int i = 0; i < 192; i++){
         bitArraySet(myBitArray, i, 1);
     }
 
@@ -176,6 +177,7 @@ int main (){
     bitArraySet(myBitArray, 128, 0);
     if (bitArrayFind(myBitArray, 20, 190, 0) != 128)
         printf ("FIND FAILURE\n");
+
 
     if (bitArrayFind(myBitArray, 129, 190, 0) != -1)
         printf ("FIND FAILURE\n");

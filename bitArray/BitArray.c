@@ -135,7 +135,7 @@ __int8_t bitArraySet (BitArray * obj, size_t index, int value){
     if (value)
         *(tmp.ptr_) |= (((__uint64_t) 1) << tmp.shift_);
     else
-        *tmp.ptr_ &= (~((__uint64_t) 1) << tmp.shift_);
+        *tmp.ptr_ &= ~(((__uint64_t) 1) << tmp.shift_);
 
     errno = 0;
     return 0;
@@ -236,9 +236,9 @@ int bitArrayFind (BitArray * obj, size_t start, size_t end, int value){
                     return (int) start;
                 }
                 else {}
-            else if (!(*tmp.ptr_ & ((__uint64_t) 1 << i))){
+            else if (~(*tmp.ptr_) & ((__uint64_t) 1 << i)){
                 errno = 0;
-                    return  (int) start;
+                return  (int) start;
             }
 
             start++;
@@ -249,11 +249,6 @@ int bitArrayFind (BitArray * obj, size_t start, size_t end, int value){
             }
         }
 
-        /*if (start > capacity - 1){
-            errno = 0;
-            return -1;
-        }*/
-
         tmp.shift_ = BITINELEM - 1;
         tmp.ptr_++;
     }
@@ -263,13 +258,9 @@ int bitArrayFind (BitArray * obj, size_t start, size_t end, int value){
         while (!(*tmp.ptr_ & ~((__uint64_t) 0)) && end - start >= BITINELEM){
             tmp.ptr_++;
             start += BITINELEM;
-            /*if (start > end){
-                errno = 0;
-                return -1;
-            }*/
         }
     else
-        while (!(*tmp.ptr_ | ((__uint64_t) 0)) && end - start >= BITINELEM){
+        while (!(~(*tmp.ptr_) & ~((__uint64_t) 0)) && end - start >= BITINELEM){
             tmp.ptr_++;
             start += BITINELEM;
         }
@@ -281,7 +272,7 @@ int bitArrayFind (BitArray * obj, size_t start, size_t end, int value){
                 return (int) start;
             }
             else {}
-        else if (!(*tmp.ptr_ & ((__uint64_t) 1 << i))){
+        else if (~(*tmp.ptr_) & ((__uint64_t) 1 << i)){
             errno = 0;
             return  (int) start;
         }
