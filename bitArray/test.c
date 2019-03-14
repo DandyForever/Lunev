@@ -49,7 +49,7 @@ int main (){
      printf ("SIZE TEST\n");
      for (int i = 0; i < 1000; i++) {
          myBitArray = bitArrayConstruct(10);
-         if (bitArraySize(myBitArray) == 64) {
+         if (bitArraySize(myBitArray) == 10) {
              printf("TEST #4 is OK\n");
          } else
              printf("TEST #4 is FAILED\n");
@@ -113,7 +113,7 @@ int main (){
     printf ("\nTEST #7\n");
     printf ("NORMAL WORK TEST\n");
 
-    for (int i = 0; i < 100; i++){
+    for (int i = 0; i < 130; i++){
         if (bitArraySet(myBitArray, i, rand() % 2) != 0)
             printf ("SET FAILURE\nTEST #7 is FAILED\n");
         if (bitArrayPrint(myBitArray) != 0)
@@ -139,56 +139,56 @@ int main (){
     printf ("\nTEST #8\n");
     printf ("FIND TEST\n");
 
-    for (int i = 0; i < 192; i++){
+    for (int i = 0; i < 130; i++){
         bitArraySet(myBitArray, i, 0);
     }
 
     bitArraySet(myBitArray, 10, 1);
-    if (bitArrayFind(myBitArray, 0, 190, 1) != 10)
+    if (bitArrayFind(myBitArray, 0, 129, 1) != 10)
         printf ("FIND FAILURE\n");
 
 
     bitArraySet(myBitArray, 128, 1);
-    if (bitArrayFind(myBitArray, 20, 190, 1) != 128)
+    if (bitArrayFind(myBitArray, 20, 129, 1) != 128)
         printf ("FIND FAILURE\n");
 
 
-    if (bitArrayFind(myBitArray, 129, 190, 1) != -1)
+    if (bitArrayFind(myBitArray, 129, 129, 1) != -1)
         printf ("FIND FAILURE\n");
 
     bitArraySet(myBitArray, 129, 1);
-    if (bitArrayFind(myBitArray, 129, 190, 1) != 129)
+    if (bitArrayFind(myBitArray, 129, 129, 1) != 129)
         printf ("FIND FAILURE\n");
 
     bitArraySet(myBitArray, 128, 0);
     bitArraySet(myBitArray, 129, 0);
-    if (bitArrayFind(myBitArray, 15, 190, 1) != -1)
+    if (bitArrayFind(myBitArray, 15, 129, 1) != -1)
         printf ("FIND FAILURE\n");
 
-    for (int i = 0; i < 192; i++){
+    for (int i = 0; i < 130; i++){
         bitArraySet(myBitArray, i, 1);
     }
 
     bitArraySet(myBitArray, 10, 0);
-    if (bitArrayFind(myBitArray, 0, 190, 0) != 10)
+    if (bitArrayFind(myBitArray, 0, 129, 0) != 10)
         printf ("FIND FAILURE\n");
 
 
     bitArraySet(myBitArray, 128, 0);
-    if (bitArrayFind(myBitArray, 20, 190, 0) != 128)
+    if (bitArrayFind(myBitArray, 20, 129, 0) != 128)
         printf ("FIND FAILURE\n");
 
 
-    if (bitArrayFind(myBitArray, 129, 190, 0) != -1)
+    if (bitArrayFind(myBitArray, 129, 129, 0) != -1)
         printf ("FIND FAILURE\n");
 
     bitArraySet(myBitArray, 129, 0);
-    if (bitArrayFind(myBitArray, 129, 190, 0) != 129)
+    if (bitArrayFind(myBitArray, 129, 129, 0) != 129)
         printf ("FIND FAILURE\n");
 
     bitArraySet(myBitArray, 128, 1);
     bitArraySet(myBitArray, 129, 1);
-    if (bitArrayFind(myBitArray, 15, 190, 0) != -1)
+    if (bitArrayFind(myBitArray, 15, 129, 0) != -1)
         printf ("FIND FAILURE\n");
 
     printf ("TEST #8 is OK\n");
@@ -230,9 +230,11 @@ int main (){
     printf ("\nTEST #10\n");
     printf ("ITERATOR NORMAL WORK TEST\n");
 
-    for (int i = 0; i < 192; i++){
+    for (int i = 0; i <= 130; i++){
+        if (iteratorGetElem(it) != bitArrayGet(myBitArray, i))
+            printf ("ITERATOR GET ELEM FAILURE\n");
         iteratorNext(it);
-        iteratorGetElem(it);
+
     }
 
     printf ("TEST #10 is OK\n");

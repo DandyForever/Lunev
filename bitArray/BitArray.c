@@ -36,7 +36,7 @@ BitArray * bitArrayConstruct (size_t size){
         return NULL;
     }
 
-    size_t numOfElements = size / BITINELEM + (size % BITINELEM != 0);
+    size_t numOfElements = (size + BITINELEM - 1) / BITINELEM;
     obj -> data_ = (__uint64_t *) badCalloc (numOfElements, sizeof (__uint64_t));
     if (obj -> data_ == NULL){
         errno = ENOMEM;
@@ -44,7 +44,7 @@ BitArray * bitArrayConstruct (size_t size){
         return NULL;
     }
 
-    obj -> size_ = numOfElements;
+    obj -> size_ = size;
 
     errno = 0;
     return obj;
@@ -76,7 +76,7 @@ size_t bitArraySize (BitArray * obj){
     }
 
     errno = 0;
-    return obj -> size_ * BITINELEM;
+    return obj -> size_;
 }
 
 __int8_t bitArrayPrint (BitArray * obj){
@@ -85,12 +85,20 @@ __int8_t bitArrayPrint (BitArray * obj){
         return -1;
     }
 
-    for (int i = 0; i < obj -> size_; i++){
+    size_t blocks = (obj -> size_ + BITINELEM - 1) / BITINELEM;
+    size_t printedBits = 0;
+
+    for (int i = 0; i < blocks; i++){
         for (int shift = BITINELEM - 1; shift >= 0; shift--){
             if (obj -> data_[i] & (((__uint64_t) 1) << shift))
                 printf ("%d ", 1);
             else
                 printf ("%d ", 0);
+
+            printedBits++;
+
+            if (printedBits > obj -> size_)
+                break;
         }
         printf (" ");
     }
@@ -106,7 +114,7 @@ __int8_t bitArrayGet (BitArray * obj, size_t index){
         return -1;
     }
 
-    if (index / BITINELEM + (index % BITINELEM != 0) > obj -> size_){
+    if (index > obj -> size_ - 1){
         errno = EINVAL;
         return -1;
     }
@@ -121,7 +129,7 @@ __int8_t bitArrayGet (BitArray * obj, size_t index){
 
 __int8_t bitArraySet (BitArray * obj, size_t index, int value){
     if (obj == NULL || (value != 0 && value != 1) ||
-            index / BITINELEM + (index % BITINELEM != 0) > obj -> size_){
+            index  > obj -> size_ - 1){
         errno = EINVAL;
         return -1;
     }
@@ -180,17 +188,18 @@ __int8_t iteratorNext (Iterator * it){
         return -1;
     }
 
-    if (it -> shift_ != 0) {
-        errno = 0;
-        it -> shift_--;
-        return 0;
-    }
-
-    else if (it -> index_ != it -> array_ -> size_ - 1) {
+    if (it -> index_ != it -> array_ -> size_ - 1) {
         errno = 0;
         it -> index_++;
-        it -> elem_++;
-        it -> shift_ = BITINELEM - 1;
+
+        if (it -> shift_ != 0){
+            it ->shift_--;
+        }
+        else{
+            it -> elem_++;
+            it -> shift_ = BITINELEM - 1;
+        }
+
         return 0;
     }
 
@@ -204,10 +213,7 @@ __int8_t iteratorGetElem (Iterator * it){
     }
 
     errno = 0;
-    if (*(it -> elem_) & ((__uint64_t) 1 << it -> shift_))
-        return 1;
-    else
-        return 0;
+    return !!(*(it -> elem_) & ((__uint64_t) 1 << it -> shift_));
 }
 
 int bitArrayFind (BitArray * obj, size_t start, size_t end, int value){
@@ -216,9 +222,7 @@ int bitArrayFind (BitArray * obj, size_t start, size_t end, int value){
         return -1;
     }
 
-    size_t capacity = obj -> size_ * BITINELEM;
-
-    if (start > capacity - 1 || end > capacity - 1 || end < start || (value != 0 && value != 1)){
+    if (start > obj -> size_ - 1 || end > obj -> size_ - 1 || end < start || (value != 0 && value != 1)){
         errno = EINVAL;
         return -1;
     }
@@ -229,16 +233,15 @@ int bitArrayFind (BitArray * obj, size_t start, size_t end, int value){
     };
 
     if (tmp.shift_ != 63){
+        __uint64_t val = *tmp.ptr_;
+
+        if (!value)
+            val = (~val);
+
         for (int i = tmp.shift_; i >= 0; i--) {
-            if (value)
-                if (*tmp.ptr_ & ((__uint64_t) 1 << i)) {
-                    errno = 0;
-                    return (int) start;
-                }
-                else {}
-            else if (~(*tmp.ptr_) & ((__uint64_t) 1 << i)){
+            if (val & ((__uint64_t) 1 << i)){
                 errno = 0;
-                return  (int) start;
+                return (int) start;
             }
 
             start++;
@@ -253,6 +256,21 @@ int bitArrayFind (BitArray * obj, size_t start, size_t end, int value){
         tmp.ptr_++;
     }
 
+    /*if (value){
+        if (__builtin_ctz(*(tmp.ptr_)) >= tmp.shift_){
+            start += tmp.shift_;
+            tmp.ptr_++;
+            tmp.shift_ = BITINELEM - 1;
+
+            if (start > end){
+                errno = 0;
+                return -1;
+            }
+        }
+        else {
+
+        }
+    }*/
 
     if (value)
         while (!(*tmp.ptr_ & ~((__uint64_t) 0)) && end - start >= BITINELEM){
@@ -265,16 +283,14 @@ int bitArrayFind (BitArray * obj, size_t start, size_t end, int value){
             start += BITINELEM;
         }
 
+    __uint64_t val = *tmp.ptr_;
+    if (!value)
+        val = ~val;
+
     for (int i = tmp.shift_; i >= 0; i--){
-        if (value)
-            if (*tmp.ptr_ & ((__uint64_t) 1 << i)) {
-                errno = 0;
-                return (int) start;
-            }
-            else {}
-        else if (~(*tmp.ptr_) & ((__uint64_t) 1 << i)){
+        if (val & ((__uint64_t) 1 << i)){
             errno = 0;
-            return  (int) start;
+            return (int) start;
         }
 
         start++;
