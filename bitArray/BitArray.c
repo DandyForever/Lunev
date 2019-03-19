@@ -228,49 +228,29 @@ int bitArrayFind (BitArray * obj, size_t start, size_t end, int value){
     }
 
     Proxy tmp = {
-            .shift_ = BITINELEM - start % BITINELEM - 1,
+            .shift_ = start % BITINELEM,
             .ptr_ = obj -> data_ + start / BITINELEM
     };
 
-    if (tmp.shift_ != 63){
-        __uint64_t val = *tmp.ptr_;
+    if (tmp.shift_ != 0){
+        __uint64_t current = *tmp.ptr_;
+        if (!value) current = ~current;
 
-        if (!value)
-            val = (~val);
+        current &= (__uint64_t) -1 >> tmp.shift_;
+        if (end - start < BITINELEM - 1)
+            current &= (__uint64_t) -1 << (BITINELEM - end % BITINELEM - 1);
 
-        for (int i = tmp.shift_; i >= 0; i--) {
-            if (val & ((__uint64_t) 1 << i)){
-                errno = 0;
-                return (int) start;
-            }
-
-            start++;
-
-            if (start > end){
-                errno = 0;
-                return -1;
-            }
-        }
-
-        tmp.shift_ = BITINELEM - 1;
-        tmp.ptr_++;
-    }
-
-    /*if (value){
-        if (__builtin_ctz(*(tmp.ptr_)) >= tmp.shift_){
-            start += tmp.shift_;
-            tmp.ptr_++;
+        if (!current){
+            start += BITINELEM - tmp.shift_;
             tmp.shift_ = BITINELEM - 1;
-
-            if (start > end){
-                errno = 0;
+            tmp.ptr_++;
+            if (start > end)
                 return -1;
-            }
         }
         else {
-
+            return start - tmp.shift_ + __builtin_clzll(current);
         }
-    }*/
+    }
 
     if (value)
         while (!(*tmp.ptr_ & ~((__uint64_t) 0)) && end - start >= BITINELEM){
@@ -283,21 +263,12 @@ int bitArrayFind (BitArray * obj, size_t start, size_t end, int value){
             start += BITINELEM;
         }
 
-    __uint64_t val = *tmp.ptr_;
-    if (!value)
-        val = ~val;
+    __uint64_t current = *tmp.ptr_;
+    if (!value) current = ~current;
 
-    for (int i = tmp.shift_; i >= 0; i--){
-        if (val & ((__uint64_t) 1 << i)){
-            errno = 0;
-            return (int) start;
-        }
+    if (end - start < BITINELEM - 1)
+        current &= (__uint64_t) -1 << (BITINELEM - 1 - end % BITINELEM);
 
-        start++;
-
-        if (start > end){
-            errno = 0;
-            return -1;
-        }
-    }
+    if (!current) return -1;
+    else return start + __builtin_clzll(current);
 }
